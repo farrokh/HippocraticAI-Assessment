@@ -17,4 +17,11 @@ export interface TemplatePerformance {
 
 export interface PerformanceResponse {
   overall: TemplatePerformance[];
+  by_question?: QuestionPerformance[];
+}
+
+export interface QuestionPerformance {
+  question_id: number;
+  question_text: string;
+  template_performance: TemplatePerformance[];
 }

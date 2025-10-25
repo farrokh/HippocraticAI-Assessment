@@ -15,7 +15,7 @@ export default async function PromptTemplatesPage() {
   const templates = (await templatesResponse.json()) as PromptTemplate[];
 
   // Fetch performance data
-  const performanceResponse = await fetch("http://0.0.0.0:8000/templates/performance?overall_only=true");
+  const performanceResponse = await fetch("http://0.0.0.0:8000/templates/performance");
   if (!performanceResponse.ok) {
     throw new Error("Failed to fetch performance data");
   }
