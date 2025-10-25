@@ -1,16 +1,17 @@
-import datetime
 import random
-from typing import List
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
 
 from models.generation import Generation
-from models.duel import Duel
+from models.duel import Duel, DuelGeneration
 from models.template import Template
 from models.questions import Question
 from db import engine, get_db
 from services.llm import generate_outputs
+from services.question import set_question_winner
 
 router = APIRouter(prefix="/questions", tags=["questions"])
 
@@ -19,40 +20,55 @@ class DecideDuelRequest(BaseModel):
     winner_id: int
 
 
+class DuelWithGenerations(BaseModel):
+    id: int
+    winner_id: Optional[int]
+    created_at: datetime
+    decided_at: Optional[datetime]
+    # Instead of question_id, we include the full question object
+    question: Question
+    generation_a: Generation
+    generation_b: Generation
+
+
+class QuestionWithSelectedGeneration(BaseModel):
+    id: int
+    text: str
+    created_at: datetime
+    selected_generation_id: Optional[int]
+    selected_generation: Optional[Generation]
+
+
+class QuestionResults(BaseModel):
+    question: Question
+    selected_generation: Optional[Generation]
+    generation_performance: List[Dict[str, Any]]
+
+
 def generation_and_duels_background_task(question_id: int):
     """Background task to generate outputs and save them to the database"""
     with Session(engine) as db:
-        from sqlmodel import select
         question = db.get(Question, question_id)
         if not question:
             return
         
-        # Get all templates
+        # Generate outputs and save them
         templates = db.exec(select(Template)).all()
-        
-        # Generate outputs using the templates
         outputs = generate_outputs(templates, question)
-        
-        # Save generations to database
         for output in outputs:
             db.add(output)
-        
         db.commit()
         
-        # Generate duels between all pairs of generations
+        # Create duels for all generation pairs
         generations = db.exec(select(Generation).where(Generation.question_id == question_id)).all()
-        
-        # Create duels for all unique pairs (avoid duplicates like A vs B and B vs A)
-        for i, generation_a in enumerate(generations):
-            for generation_b in generations[i+1:]:
-                db.add(Duel(
-                    question_id=question_id,
-                    generation_a_id=generation_a.id,
-                    generation_b_id=generation_b.id
-                ))
-        
+        for i, gen_a in enumerate(generations):
+            for gen_b in generations[i+1:]:
+                duel = Duel(question_id=question_id)
+                db.add(duel)
+                db.flush()
+                db.add(DuelGeneration(duel_id=duel.id, generation_id=gen_a.id, role="generation_a"))
+                db.add(DuelGeneration(duel_id=duel.id, generation_id=gen_b.id, role="generation_b"))
         db.commit()
-        print(f"✓ Generated {len(outputs)} outputs and {len(generations) * (len(generations) - 1) // 2} duels for question {question_id}")
 
 
 @router.post("/", response_model=Question)
@@ -77,12 +93,28 @@ def get_questions(db: Session = Depends(get_db)):
     return db.exec(statement).all()
 
 
-@router.get("/{question_id}", response_model=Question)
+@router.get("/{question_id}", response_model=QuestionWithSelectedGeneration)
 def get_question(question_id: int, db: Session = Depends(get_db)):
-    question = db.get(Question, question_id)
-    if not question:
+    # Use a LEFT JOIN to get question with its selected generation in one query
+    statement = (
+        select(Question, Generation)
+        .outerjoin(Generation, Question.selected_generation_id == Generation.id)
+        .where(Question.id == question_id)
+    )
+    
+    result = db.exec(statement).first()
+    if not result:
         raise HTTPException(status_code=404, detail="Question not found")
-    return question
+    
+    question, selected_generation = result
+    
+    return QuestionWithSelectedGeneration(
+        id=question.id,
+        text=question.text,
+        created_at=question.created_at,
+        selected_generation_id=question.selected_generation_id,
+        selected_generation=selected_generation
+    )
 
 
 @router.put("/{question_id}", response_model=Question)
@@ -94,7 +126,6 @@ def update_question(question_id: int, question: Question, db: Session = Depends(
     for key, value in question.model_dump(exclude_unset=True).items():
         setattr(db_question, key, value)
     
-    db.add(db_question)
     db.commit()
     db.refresh(db_question)
     return db_question
@@ -117,43 +148,74 @@ def get_duels_by_question(question_id: int, db: Session = Depends(get_db)):
     return db.exec(statement).all()
 
 
-@router.get("/{question_id}/duels/next", response_model=Duel)
+@router.get("/{question_id}/duels/next", response_model=DuelWithGenerations)
 def get_next_duel(question_id: int, db: Session = Depends(get_db)):
-    statement = select(Duel).where(Duel.question_id == question_id).where(Duel.winner_id == None).order_by(Duel.created_at.asc())
-    duels = db.exec(statement)
+    """Get the next undecided duel with full question and generation data"""
+    duels = db.exec(select(Duel).where(Duel.question_id == question_id, Duel.winner_id == None)).all()
     if not duels:
         raise HTTPException(status_code=404, detail="No next duel found")
-    # return random duel from the list
-    return random.choice(duels.all())
+    
+    duel = random.choice(duels)
+    
+    # Get generations for this duel
+    duel_gens = db.exec(select(DuelGeneration).where(DuelGeneration.duel_id == duel.id)).all()
+    gen_a_id = next((dg.generation_id for dg in duel_gens if dg.role == "generation_a"), None)
+    gen_b_id = next((dg.generation_id for dg in duel_gens if dg.role == "generation_b"), None)
+    
+    if not gen_a_id or not gen_b_id:
+        raise HTTPException(status_code=404, detail="Related data not found")
+    
+    return DuelWithGenerations(
+        id=duel.id,
+        winner_id=duel.winner_id,
+        created_at=duel.created_at,
+        decided_at=duel.decided_at,
+        question=duel.question,
+        generation_a=db.get(Generation, gen_a_id),
+        generation_b=db.get(Generation, gen_b_id)
+    )
+    
 
 
 @router.post("/{question_id}/duels/{duel_id}/decide", response_model=Duel)
-def decide_duel(
-    question_id: int,
-    duel_id: int, 
-    request: DecideDuelRequest,
-    db: Session = Depends(get_db)
-):
+def decide_duel(question_id: int, duel_id: int, request: DecideDuelRequest, db: Session = Depends(get_db)):
     duel = db.get(Duel, duel_id)
-    if not duel:
-        raise HTTPException(status_code=404, detail="Duel not found")
+    if not duel or duel.winner_id is not None:
+        raise HTTPException(status_code=404 if not duel else 400, detail="Duel not found" if not duel else "Duel already decided")
     
-    if duel.winner_id is not None:
-        raise HTTPException(status_code=400, detail="Duel already decided")
-    
-    # Validate that winner_id is one of the two generations in the duel
-    valid_ids = [duel.generation_a_id, duel.generation_b_id]
+    # Validate winner_id
+    valid_ids = [dg.generation_id for dg in db.exec(select(DuelGeneration).where(DuelGeneration.duel_id == duel.id)).all() if dg.role in ["generation_a", "generation_b"]]
     if request.winner_id not in valid_ids:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid winner ID. Must be either {duel.generation_a_id} or {duel.generation_b_id}"
-        )
+        raise HTTPException(status_code=400, detail="Invalid winner ID")
     
-    # Set the winner
+    # Update duel
     duel.winner_id = request.winner_id
-    duel.decided_at = datetime.datetime.now()
-    
-    db.add(duel)
+    duel.decided_at = datetime.now()
     db.commit()
-    db.refresh(duel)
+    
+    # Check if all duels are decided and set winner
+    set_question_winner(question_id, db)
     return duel
+
+@router.get("/{question_id}/results", response_model=QuestionResults)
+def get_question_results(question_id: int, db: Session = Depends(get_db)):
+    from services.performance import get_generation_performance_stats
+    
+    # Get the question
+    question = db.get(Question, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # Get the selected generation if it exists
+    selected_generation = None
+    if question.selected_generation_id:
+        selected_generation = db.get(Generation, question.selected_generation_id)
+    
+    # Get generation performance stats for this question
+    generation_performance = get_generation_performance_stats(question_id, db)
+    
+    return QuestionResults(
+        question=question,
+        selected_generation=selected_generation,
+        generation_performance=generation_performance
+    )
