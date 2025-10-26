@@ -2,6 +2,7 @@
 
 import type { QuestionType } from "@/types/question";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 
 export default function QuestionsList({ 
     initialQuestions, 
@@ -39,9 +40,9 @@ export default function QuestionsList({
                   </p>
                 </div>
                 {question.selected_generation?.output_text && (
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {question.selected_generation?.output_text}
-                  </p>
+                  <div className="text-xs pl-6 text-gray-500 mt-1 line-clamp-2">
+                    <ReactMarkdown>{question.selected_generation?.output_text || ""}</ReactMarkdown>
+                  </div>
                 )}
               </div>
             </div>

@@ -87,28 +87,45 @@ def create_question(
     return question
 
 
-@router.get("/", response_model=List[QuestionWithSelectedGeneration])
-def get_questions(db: Session = Depends(get_db)):
-    # Use a LEFT JOIN to get questions with their selected generations in one query
-    statement = (
-        select(Question, Generation)
-        .outerjoin(Generation, Question.selected_generation_id == Generation.id)
+def _build_question_with_generation(question: Question, selected_generation: Optional[Generation] = None) -> QuestionWithSelectedGeneration:
+    """Helper function to build QuestionWithSelectedGeneration from question and optional generation"""
+    return QuestionWithSelectedGeneration(
+        id=question.id,
+        text=question.text,
+        created_at=question.created_at,
+        selected_generation_id=question.selected_generation_id,
+        selected_generation=selected_generation
     )
-    
-    results = db.exec(statement).all()
-    
-    # Convert results to QuestionWithSelectedGeneration objects
-    questions_with_generations = []
-    for question, selected_generation in results:
-        questions_with_generations.append(QuestionWithSelectedGeneration(
-            id=question.id,
-            text=question.text,
-            created_at=question.created_at,
-            selected_generation_id=question.selected_generation_id,
-            selected_generation=selected_generation
-        ))
-    
-    return questions_with_generations
+
+
+@router.get("/", response_model=List[QuestionWithSelectedGeneration])
+def get_questions(limit: int = 10, details: bool = False, db: Session = Depends(get_db)):
+    """Get list of questions with optional selected generation details"""
+    if details:
+        # When details=True, use LEFT JOIN to fetch generations in one query
+        statement = (
+            select(Question, Generation)
+            .outerjoin(Generation, Question.selected_generation_id == Generation.id)
+            .order_by(Question.created_at.desc())
+            .limit(limit)
+        )
+        results = db.exec(statement).all()
+        return [
+            _build_question_with_generation(question, selected_generation)
+            for question, selected_generation in results
+        ]
+    else:
+        # When details=False, only fetch questions (more efficient)
+        statement = (
+            select(Question)
+            .order_by(Question.created_at.desc())
+            .limit(limit)
+        )
+        results = db.exec(statement).all()
+        return [
+            _build_question_with_generation(question, None)
+            for question in results
+        ]
 
 
 @router.get("/{question_id}", response_model=QuestionWithSelectedGeneration)
@@ -125,14 +142,7 @@ def get_question(question_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Question not found")
     
     question, selected_generation = result
-    
-    return QuestionWithSelectedGeneration(
-        id=question.id,
-        text=question.text,
-        created_at=question.created_at,
-        selected_generation_id=question.selected_generation_id,
-        selected_generation=selected_generation
-    )
+    return _build_question_with_generation(question, selected_generation)
 
 
 @router.put("/{question_id}", response_model=Question)

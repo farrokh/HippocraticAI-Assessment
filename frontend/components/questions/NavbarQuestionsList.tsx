@@ -46,7 +46,7 @@ export default function NavbarQuestionsList({ limit = 10, className }: { limit?:
     }
 
     return (
-        <div className={`flex flex-col gap-1 ${className}`}>
+        <div className={`flex flex-col gap-1  ${className}` }>
             {questions.map((question) => (
                 <Link 
                     key={question.id} 
