@@ -1,12 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { ComparisonType } from "@/types/question";
 import { toast } from "sonner";
 import NoComparison from "./NoComparison";
 import ReactMarkdown from "react-markdown";
 import { CheckCircle, Loader2, Trophy, Zap, Clock, Target } from "lucide-react";
+
+// Word-by-word animation component with opacity
+function TypingText({ text, speed = 100 }: { text: string; speed?: number }) {
+  const [displayedWords, setDisplayedWords] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  // Split text into words
+  const words = text.split(' ');
+
+  useEffect(() => {
+    if (currentIndex < words.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedWords(prev => [...prev, words[currentIndex]]);
+        setCurrentIndex(prev => prev + 1);
+      }, speed);
+      return () => clearTimeout(timeout);
+    }
+  }, [currentIndex, words, speed]);
+
+  return (
+    <div className="prose prose-sm max-w-none text-gray-700">
+      <ReactMarkdown>
+        {displayedWords.join(' ')}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export default function Comparison({  comparison }: { comparison: ComparisonType }) {
   const [currentComparison, setCurrentComparison] = useState<ComparisonType | null>(comparison);
@@ -151,9 +178,7 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
                       </div>
                     )}
                   </div>
-                  <div className="prose prose-sm max-w-none text-gray-700">
-                    <ReactMarkdown>{currentComparison.generation_a.output_text}</ReactMarkdown>
-                  </div>
+                  <TypingText key={`winner-a-${currentComparison.generation_a.id}`} text={currentComparison.generation_a.output_text} speed={20} />
                 </div>
               </div>
 
@@ -173,9 +198,7 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
                       </div>
                     )}
                   </div>
-                  <div className="prose prose-sm max-w-none text-gray-700">
-                    <ReactMarkdown>{currentComparison.generation_b.output_text}</ReactMarkdown>
-                  </div>
+                  <TypingText key={`winner-b-${currentComparison.generation_b.id}`} text={currentComparison.generation_b.output_text} speed={20} />
                 </div>
               </div>
             </div>
@@ -190,9 +213,7 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
                   <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Response A</h3>
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
                 </div>
-                <div className="prose prose-sm max-w-none text-gray-700">
-                  <ReactMarkdown>{currentComparison?.generation_a.output_text}</ReactMarkdown>
-                </div>
+                <TypingText key={`active-a-${currentComparison?.generation_a.id}`} text={currentComparison?.generation_a.output_text || ""} speed={50} />
               </div>
               <button
                 onClick={() => decideWinner(currentComparison?.generation_a.id ?? 0)}
@@ -217,9 +238,7 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
                   <h3 className="text-sm font-medium text-gray-600 uppercase tracking-wide">Response B</h3>
                   <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
                 </div>
-                <div className="prose prose-sm max-w-none text-gray-700">
-                  <ReactMarkdown>{currentComparison?.generation_b.output_text}</ReactMarkdown>
-                </div>
+                <TypingText key={`active-b-${currentComparison?.generation_b.id}`} text={currentComparison?.generation_b.output_text || ""} speed={50} />
               </div>
               <button
                 onClick={() => decideWinner(currentComparison?.generation_b.id ?? 0)}
@@ -260,6 +279,11 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
           to { opacity: 1; transform: translateY(0); }
         }
         
+        @keyframes fade-in-word {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
         .animate-fade-in {
           animation: fade-in 0.6s ease-out;
         }
@@ -270,6 +294,10 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
         
         .animate-fade-in-delayed {
           animation: fade-in 0.6s ease-out 0.3s both;
+        }
+        
+        .animate-fade-in-word {
+          animation: fade-in-word 0.3s ease-out;
         }
       `}</style>
     </div>

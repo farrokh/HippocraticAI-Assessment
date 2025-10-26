@@ -82,14 +82,14 @@ export default function QuestionWithSelectedAnswer({ question }: { question: Que
           </div>
         )}
         <div className="mt-4">
-          <div className="text-gray-700 prose prose-sm max-w-none">
+          <div className="text-gray-700 prose prose-sm max-w-none m-10 p-10 bg-gray-50 rounded-lg">
             <ReactMarkdown>{question.selected_generation?.output_text || ""}</ReactMarkdown>
           </div>
         </div>
         
         {otherGenerations.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Other Answers</h2>
+          <div className="mt-12">
+            <h2 className="text-lg font-semibold text-gray-600 mb-4">Other Answers</h2>
             <Accordion type="single" collapsible className="w-full">
               {otherGenerations.map((generation) => (
                 <AccordionItem key={generation.generation_id} value={`item-${generation.generation_id}`}>
