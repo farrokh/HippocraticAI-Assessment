@@ -87,10 +87,28 @@ def create_question(
     return question
 
 
-@router.get("/", response_model=List[Question])
+@router.get("/", response_model=List[QuestionWithSelectedGeneration])
 def get_questions(db: Session = Depends(get_db)):
-    statement = select(Question)
-    return db.exec(statement).all()
+    # Use a LEFT JOIN to get questions with their selected generations in one query
+    statement = (
+        select(Question, Generation)
+        .outerjoin(Generation, Question.selected_generation_id == Generation.id)
+    )
+    
+    results = db.exec(statement).all()
+    
+    # Convert results to QuestionWithSelectedGeneration objects
+    questions_with_generations = []
+    for question, selected_generation in results:
+        questions_with_generations.append(QuestionWithSelectedGeneration(
+            id=question.id,
+            text=question.text,
+            created_at=question.created_at,
+            selected_generation_id=question.selected_generation_id,
+            selected_generation=selected_generation
+        ))
+    
+    return questions_with_generations
 
 
 @router.get("/{question_id}", response_model=QuestionWithSelectedGeneration)

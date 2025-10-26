@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import QuestionsList from "./questions/QuestionsList";
+import NavbarQuestionsList from "./questions/NavbarQuestionsList";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -44,7 +44,7 @@ export function Sidebar() {
         <h3 className="text-sm font-medium text-gray-600 mb-2">
           Recent Questions
         </h3>
-        <QuestionsList limit={10} className="text-sm text-gray-600 " />
+        <NavbarQuestionsList limit={10} className="text-sm text-gray-600 " />
       </div>
       <div className="p-4">
       <Link
