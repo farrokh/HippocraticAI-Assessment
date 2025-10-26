@@ -93,9 +93,9 @@ A monorepo application for running tournaments between different LLM prompt temp
 
 1. **Start both servers** (backend on port 8000, frontend on port 3000)
 2. **Open your browser** to `http://localhost:3000`
-3. **Browse templates** to see available prompt templates
-4. **Ask a question** to start a tournament and compare different prompt strategies
-5. **View comparisons** to see which template performs best
+3. **Browse templates** to see available prompt templates and checking which template performs best: `http://localhost:3000/templates`
+4. **Ask a question** to start a tournament and compare different prompt strategies go to `http://localhost:3000`
+5. **Brows ask questions** to see list of the decided and undecided questions: `http://localhost:3000/questions`
 
 ## 🏛️ Architecture
 
@@ -130,9 +130,9 @@ The application uses SQLite with the following models:
 ## 🔧 Development
 
 ### Backend
-- Run with auto-reload: `python main.py`
+- Run with auto-reload: `uv run main.py`
 - API docs available at: `http://localhost:8000/docs`
-- Seed templates: `python seed.py`
+- Seed templates: `uv run seed.py`
 
 ### Frontend
 - Development server: `npm run dev`
@@ -154,15 +154,3 @@ The application uses SQLite with the following models:
 - **Performance Analytics:** Track latency, tokens, and quality metrics
 - **Tournament System:** Compare multiple templates side-by-side
 - **Responsive UI:** Modern, accessible interface with charts and visualizations
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a pull request
-
-## 📄 License
-
-This project is part of the HippocraticAI Assessment.

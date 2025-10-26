@@ -33,6 +33,10 @@ FastAPI backend for the LLM Tournament Widget application.
 
 4. **Run the server:**
    ```bash
+   # Using uv (recommended)
+   uv run main.py
+   
+   # Or with Python
    python main.py
    ```
 
