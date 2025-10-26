@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Interview API",
-  description: "AI Interview Response Comparison Tool",
+  title: "LLM Tournament Widget",
+  description: "LLM Tournament Widget",
 };
 
 export default function RootLayout({
