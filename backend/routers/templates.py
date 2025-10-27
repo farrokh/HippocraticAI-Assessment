@@ -53,9 +53,9 @@ def get_template_performance(
     # This is more complex and specific to the templates endpoint
     from sqlmodel import func as sql_func
     
-    # Single optimized query for per-question performance
+    # Single optimized query for per-question performance with template data
     question_query = select(
-        Generation.template_id,
+        Template,
         Duel.question_id,
         sql_func.count().label('total_duels'),
         sql_func.sum(case((Generation.id == Duel.winner_id, 1), else_=0)).label('wins')
@@ -66,27 +66,27 @@ def get_template_performance(
     ).join(
         Generation, DuelGeneration.generation_id == Generation.id
     ).join(
+        Template, Generation.template_id == Template.id
+    ).join(
         Question, Duel.question_id == Question.id
     ).where(
         Duel.winner_id.isnot(None),
         Question.selected_generation_id.isnot(None)
     ).group_by(
-        Generation.template_id,
+        Template.id,
         Duel.question_id
     )
     
     # Execute question query
     question_results = db.exec(question_query).all()
     
-    # Get all templates and questions
-    all_templates = {t.id: t for t in db.exec(select(Template)).all()}
+    # Get all questions
     all_questions = {q.id: q for q in db.exec(select(Question)).all()}
     
     # Format per-question performance
     question_performance_map: Dict[int, List[Dict[str, Any]]] = {}
     
-    for row in question_results:
-        question_id = row.question_id
+    for template, question_id, total_duels, wins in question_results:
         if question_id not in question_performance_map:
             question = all_questions.get(question_id)
             question_performance_map[question_id] = {
@@ -97,15 +97,14 @@ def get_template_performance(
                 }
             }
         
-        template = all_templates.get(row.template_id)
-        win_rate = (row.wins / row.total_duels * 100) if row.total_duels > 0 else 0
+        win_rate = (wins / total_duels * 100) if total_duels > 0 else 0
         
         question_performance_map[question_id]["question_data"]["template_performance"].append({
-            "template_id": row.template_id,
-            "template_name": template.name if template else f"Template {row.template_id}",
-            "template_key": template.key if template else None,
-            "wins": row.wins,
-            "total_duels": row.total_duels,
+            "template_id": template.id,
+            "template_name": template.name,
+            "template_key": template.key,
+            "wins": wins,
+            "total_duels": total_duels,
             "win_rate": round(win_rate, 2)
         })
     
@@ -152,46 +151,47 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
     
     # Get all generations that use this template
     generations = db.exec(select(Generation).where(Generation.template_id == template_id)).all()
+    generation_ids = [gen.id for gen in generations]
     
-    # For each generation, we need to clean up related data
-    for generation in generations:
-        # 1. Update any questions that have this generation as selected_generation_id
-        questions_with_selected = db.exec(
-            select(Question).where(Question.selected_generation_id == generation.id)
-        ).all()
-        for question in questions_with_selected:
-            question.selected_generation_id = None
-            db.add(question)
-        
-        # 2. Delete all duels that involve this generation
-        # First get all duels where this generation is a participant
-        duel_generations = db.exec(
-            select(DuelGeneration).where(DuelGeneration.generation_id == generation.id)
-        ).all()
-        
-        # Get all duel IDs that involve this generation
-        duel_ids = [dg.duel_id for dg in duel_generations]
-        
+    if not generation_ids:
+        # No generations to clean up, just delete template
+        db.delete(template)
+        db.commit()
+        return {"message": "Template deleted successfully (no associated generations)"}
+    
+    # 1. Update questions that have any of these generations as selected_generation_id
+    questions_to_update = db.exec(
+        select(Question).where(Question.selected_generation_id.in_(generation_ids))
+    ).all()
+    for question in questions_to_update:
+        question.selected_generation_id = None
+        db.add(question)
+    
+    # 2. Get all duel IDs that involve any of these generations
+    duel_generations = db.exec(
+        select(DuelGeneration).where(DuelGeneration.generation_id.in_(generation_ids))
+    ).all()
+    duel_ids = list(set([dg.duel_id for dg in duel_generations]))
+    
+    # 3. Delete all DuelGeneration entries for these duels
+    if duel_ids:
         # Delete all DuelGeneration entries for these duels
-        if duel_ids:
-            # Delete DuelGeneration entries
-            for duel_id in duel_ids:
-                duel_gen_entries = db.exec(
-                    select(DuelGeneration).where(DuelGeneration.duel_id == duel_id)
-                ).all()
-                for dg_entry in duel_gen_entries:
-                    db.delete(dg_entry)
-            
-            # Delete the duels themselves
-            for duel_id in duel_ids:
-                duel = db.get(Duel, duel_id)
-                if duel:
-                    db.delete(duel)
+        duel_gen_entries = db.exec(
+            select(DuelGeneration).where(DuelGeneration.duel_id.in_(duel_ids))
+        ).all()
+        for dg_entry in duel_gen_entries:
+            db.delete(dg_entry)
         
-        # 3. Delete the generation itself
+        # Delete the duels themselves
+        duels_to_delete = db.exec(select(Duel).where(Duel.id.in_(duel_ids))).all()
+        for duel in duels_to_delete:
+            db.delete(duel)
+    
+    # 4. Delete all generations
+    for generation in generations:
         db.delete(generation)
     
-    # 4. Finally, delete the template
+    # 5. Finally, delete the template
     db.delete(template)
     db.commit()
     

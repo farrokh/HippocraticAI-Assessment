@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 from datetime import datetime
-
+from pydantic import BaseModel
 from models.generation import Generation
 from models.questions import Question
 
@@ -35,3 +35,18 @@ class Duel(SQLModel, table=True):
         back_populates="duels",
         link_model=DuelGeneration
     )
+
+
+class DecideDuelRequest(BaseModel):
+    winner_id: int
+
+
+class DuelWithGenerations(BaseModel):
+    id: int
+    winner_id: Optional[int]
+    created_at: datetime
+    decided_at: Optional[datetime]
+    # Instead of question_id, we include the full question object
+    question: Question
+    generation_a: Generation
+    generation_b: Generation

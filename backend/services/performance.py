@@ -11,38 +11,35 @@ def get_generation_performance_stats(question_id: int, db: Session) -> List[Dict
     Get performance statistics for all generations of a specific question.
     Returns list of generation performance data with win rates.
     """
-    # Query to get generation stats for a specific question
-    # Count unique duels per generation, not all DuelGeneration entries
+    # Single query with joins to get generation stats and template data
     generation_stats = db.exec(
         select(
             Generation,
+            Template,
             sql_func.count(sql_func.distinct(Duel.id)).label('total_duels'),
             sql_func.sum(case((Generation.id == Duel.winner_id, 1), else_=0)).label('wins')
         )
         .select_from(Generation)
+        .join(Template, Generation.template_id == Template.id)
         .outerjoin(DuelGeneration, Generation.id == DuelGeneration.generation_id)
         .outerjoin(Duel, DuelGeneration.duel_id == Duel.id)
         .where(
             Generation.question_id == question_id,
             Duel.winner_id.isnot(None)  # Only count decided duels
         )
-        .group_by(Generation.id)
+        .group_by(Generation.id, Template.id)
     ).all()
-    
-    # Get template data for context
-    all_templates = {t.id: t for t in db.exec(select(Template)).all()}
     
     # Format the results
     performance_data = []
-    for gen, total_duels, wins in generation_stats:
-        template = all_templates.get(gen.template_id)
+    for gen, template, total_duels, wins in generation_stats:
         win_rate = (wins / total_duels * 100) if total_duels > 0 else 0.0
         
         performance_data.append({
             "generation_id": gen.id,
             "template_id": gen.template_id,
-            "template_name": template.name if template else f"Template {gen.template_id}",
-            "template_key": template.key if template else None,
+            "template_name": template.name,
+            "template_key": template.key,
             "output_text": gen.output_text,
             "llm_model": gen.llm_model,
             "latency": gen.latency,
@@ -65,9 +62,9 @@ def get_template_performance_stats(db: Session, question_id: Optional[int] = Non
     Get template performance statistics, optionally filtered by question.
     Reuses the logic from templates.py but allows filtering by question.
     """
-    # Base query for overall performance
+    # Single query with joins to get template performance and template data
     overall_query = select(
-        Generation.template_id,
+        Template,
         sql_func.count().label('total_duels'),
         sql_func.sum(case((Generation.id == Duel.winner_id, 1), else_=0)).label('wins')
     ).select_from(
@@ -76,6 +73,8 @@ def get_template_performance_stats(db: Session, question_id: Optional[int] = Non
         DuelGeneration, Duel.id == DuelGeneration.duel_id
     ).join(
         Generation, DuelGeneration.generation_id == Generation.id
+    ).join(
+        Template, Generation.template_id == Template.id
     ).join(
         Question, Duel.question_id == Question.id
     ).where(
@@ -87,25 +86,21 @@ def get_template_performance_stats(db: Session, question_id: Optional[int] = Non
     if question_id:
         overall_query = overall_query.where(Generation.question_id == question_id)
     
-    overall_query = overall_query.group_by(Generation.template_id)
+    overall_query = overall_query.group_by(Template.id)
     
     # Execute query
     overall_results = db.exec(overall_query).all()
     
-    # Get all templates
-    all_templates = {t.id: t for t in db.exec(select(Template)).all()}
-    
     # Format overall performance
     overall_performance = []
-    for row in overall_results:
-        template = all_templates.get(row.template_id)
-        win_rate = (row.wins / row.total_duels * 100) if row.total_duels > 0 else 0
+    for template, total_duels, wins in overall_results:
+        win_rate = (wins / total_duels * 100) if total_duels > 0 else 0
         overall_performance.append({
-            "template_id": row.template_id,
-            "template_name": template.name if template else f"Template {row.template_id}",
-            "template_key": template.key if template else None,
-            "wins": row.wins,
-            "total_duels": row.total_duels,
+            "template_id": template.id,
+            "template_name": template.name,
+            "template_key": template.key,
+            "wins": wins,
+            "total_duels": total_duels,
             "win_rate": round(win_rate, 2)
         })
     

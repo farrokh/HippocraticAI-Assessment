@@ -21,7 +21,7 @@ export function Sidebar() {
           href="/questions"
           className={`block w-full text-left px-3 py-2 rounded text-sm font-medium mb-2 ${
             pathname === "/questions"
-              ? "bg-blue-100 text-blue-700"
+              ? "bg-gray-700 text-slate-100"
               : "text-gray-600 hover:bg-gray-50"
           }`}
         >
@@ -31,7 +31,7 @@ export function Sidebar() {
           href="/templates"
           className={`block w-full text-left px-3 py-2 rounded text-sm font-medium mb-2 ${
             pathname === "/templates"
-              ? "bg-blue-100 text-blue-700"
+              ? "bg-gray-700 text-slate-100"
               : "text-gray-600 hover:bg-gray-50"
           }`}
         >
