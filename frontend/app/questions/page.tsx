@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import type { QuestionType } from "@/types/question";
 
 async function fetchQuestions(): Promise<QuestionType[]> {
-  const response = await fetch(`http://localhost:8000/questions?details=true&limit=30`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions?details=true&limit=30`, {
     cache: 'no-store', // Ensure fresh data
   });
   

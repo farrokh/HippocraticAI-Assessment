@@ -33,7 +33,7 @@ export default function AskQuestion() {
 
     try {
       // Step 1: Create the question
-      const response = await fetch("http://localhost:8000/questions/", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -63,13 +63,13 @@ export default function AskQuestion() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl mx-auto">
         {/* Header with animation */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="inline-flex items-center gap-2 mb-4">
             <Sparkles className="w-8 h-8 text-blue-600 animate-pulse" />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-linear-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
               Ask a Question
             </h1>
           </div>

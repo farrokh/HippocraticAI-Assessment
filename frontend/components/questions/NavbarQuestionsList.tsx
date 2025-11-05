@@ -9,14 +9,14 @@ export default function NavbarQuestionsList({ limit = 10, className }: { limit?:
     const [statuses, setStatuses] = useState<Record<number, 'completed' | 'pending'>>({});
     
     const fetchQuestions = useEffectEvent(async () => {
-        const response = await fetch(`http://localhost:8000/questions/?limit=${limit}`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/?limit=${limit}`);
         const data = await response.json();
         setQuestions(data);
         
         // Fetch status for each question
         const statusPromises = data.map(async (q: QuestionType) => {
             try {
-                const statusResponse = await fetch(`http://localhost:8000/questions/${q.id}`);
+                const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${q.id}`);
                 if (statusResponse.ok) {
                     const questionData = await statusResponse.json();
                     return { id: q.id, status: questionData.selected_generation_id ? 'completed' : 'pending' };

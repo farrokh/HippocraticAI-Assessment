@@ -8,14 +8,14 @@ import { Suspense } from "react";
 
 export default async function PromptTemplatesPage() {
   // Fetch templates
-  const templatesResponse = await fetch("http://localhost:8000/templates/");
+  const templatesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/`);
   if (!templatesResponse.ok) {
     throw new Error("Failed to fetch templates");
   }
   const templates = (await templatesResponse.json()) as PromptTemplate[];
 
   // Fetch performance data
-  const performanceResponse = await fetch("http://0.0.0.0:8000/templates/performance");
+  const performanceResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/performance`);
   if (!performanceResponse.ok) {
     throw new Error("Failed to fetch performance data");
   }

@@ -47,7 +47,7 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
 
     try {
       const response = await fetch(
-        `http://localhost:8000/questions/${currentComparison?.question.id}/duels/${currentComparison?.id}/decide`,
+        `${process.env.NEXT_PUBLIC_API_URL}/questions/${currentComparison?.question.id}/duels/${currentComparison?.id}/decide`,
         {
           method: "POST",
           headers: {
@@ -74,7 +74,7 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
     if (!currentComparison) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/questions/${currentComparison.question.id}/duels/next`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${currentComparison.question.id}/duels/next`);
       if (!response.ok) {
         // If no more duels available, redirect to question page to show selected answer
         if (response.status === 404) {

@@ -16,7 +16,7 @@ export default function PromptTemplates({ promptTemplates, performanceData }: { 
   // Function to refresh performance data
   const refreshPerformanceData = async () => {
     try {
-      const response = await fetch("http://localhost:8000/templates/performance");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/performance`);
       if (response.ok) {
         const data = await response.json();
         setPerformanceDataState(data);
@@ -44,7 +44,7 @@ export default function PromptTemplates({ promptTemplates, performanceData }: { 
   const handleCreate = async (templateData: Omit<PromptTemplate, 'id' | 'created_at'>) => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/templates/", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(templateData),
@@ -69,7 +69,7 @@ export default function PromptTemplates({ promptTemplates, performanceData }: { 
     
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/templates/${editingTemplate.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/${editingTemplate.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(templateData),
@@ -95,7 +95,7 @@ export default function PromptTemplates({ promptTemplates, performanceData }: { 
     
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/templates/${id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/templates/${id}`, {
         method: "DELETE",
       });
       

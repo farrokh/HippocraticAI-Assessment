@@ -26,7 +26,7 @@ export default function ProcessingQuestion({ questionId }: ProcessingQuestionPro
 
     const pollForDuels = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/questions/${questionId}/duels/next`);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${questionId}/duels/next`);
         if (response.ok) {
           // Duels are ready, refresh the page
           router.refresh();

@@ -8,7 +8,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ quest
   
   // First, fetch the question to check if it has a selected_generation_id
   const questionResponse = await fetch(
-    `http://0.0.0.0:8000/questions/${questionId}/results`
+    `${process.env.NEXT_PUBLIC_API_URL}/questions/${questionId}/results`
   );
   
   if (!questionResponse.ok) {
@@ -23,7 +23,7 @@ export default async function QuestionPage({ params }: { params: Promise<{ quest
   }
   
   // If no selected_generation_id, fetch the next duel
-  const comparisonResponse = await fetch(`http://localhost:8000/questions/${questionId}/duels/next`);
+  const comparisonResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${questionId}/duels/next`);
   
   if (!comparisonResponse.ok) {
     if (comparisonResponse.status === 404) {
