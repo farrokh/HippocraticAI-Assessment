@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePollDuels } from "@/hooks/usePollDuels";
 
 interface ProcessingQuestionProps {
   questionId: string;
@@ -9,7 +9,6 @@ interface ProcessingQuestionProps {
 
 export default function ProcessingQuestion({ questionId }: ProcessingQuestionProps) {
   const [dots, setDots] = useState("");
-  const router = useRouter();
 
   // Animate dots
   useEffect(() => {
@@ -19,50 +18,8 @@ export default function ProcessingQuestion({ questionId }: ProcessingQuestionPro
     return () => clearInterval(interval);
   }, []);
 
-  // Poll for duels to become available
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-    let maxTimeoutId: NodeJS.Timeout;
-
-    const pollForDuels = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${questionId}/duels/next`);
-        if (response.ok) {
-          // Duels are ready, refresh the page
-          router.refresh();
-        } else if (response.status === 202) {
-          // Still processing, continue polling
-          console.log("Still processing...");
-        } else if (response.status === 404) {
-          // Question not found - this is a real error, stop polling
-          console.error("Question not found");
-          if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
-          }
-        }
-      } catch (error) {
-        // Continue polling on network errors
-        console.log("Still processing...");
-      }
-    };
-
-    // Start polling after a short delay
-    const initialTimeout = setTimeout(() => {
-      intervalId = setInterval(pollForDuels, 2000); // Poll every 2 seconds
-      
-      // Clean up after 60 seconds to prevent infinite polling
-      maxTimeoutId = setTimeout(() => {
-        if (intervalId) clearInterval(intervalId);
-      }, 60000);
-    }, 1000);
-
-    return () => {
-      clearTimeout(initialTimeout);
-      if (intervalId) clearInterval(intervalId);
-      if (maxTimeoutId) clearTimeout(maxTimeoutId);
-    };
-  }, [questionId, router]);
+  // Poll for duels to become available with exponential backoff
+  usePollDuels({ questionId });
 
   return (
     <div className="p-8 h-full flex flex-col justify-center items-center gap-6">
