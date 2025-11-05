@@ -5,6 +5,7 @@ import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import { Send, Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 interface QuestionResponse {
   id: number;
@@ -48,13 +49,14 @@ export default function AskQuestion() {
       }
 
       const data = (await response.json()) as QuestionResponse;
-      console.log("Question created:", data);
       setQuestion("");
 
-      // Navigate directly to the question page - it will handle showing comparison or processing state
-      console.log("Navigating to question page");
       router.push(`/questions/${data.id}`);
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Failed to create question. Please try again.";
+      toast.error(errorMessage);
       console.error("Error creating question:", error);
     } finally {
       setIsLoading(false);
