@@ -183,8 +183,8 @@ class TestPerformanceService:
         db_session.commit()
         
         # Set question winner (required for template performance stats)
-        sample_question.selected_generation_id = gen1.id
-        db_session.add(sample_question)
+        gen1.is_selected = True
+        db_session.add(gen1)
         db_session.commit()
         
         # Get template performance stats
@@ -290,8 +290,8 @@ class TestPerformanceService:
         db_session.commit()
         
         # Set question 1 winner
-        question1.selected_generation_id = gen1_q1.id
-        db_session.add(question1)
+        gen1_q1.is_selected = True
+        db_session.add(gen1_q1)
         db_session.commit()
         
         # Get template performance stats filtered by question 1

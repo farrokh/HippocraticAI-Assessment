@@ -23,7 +23,6 @@ class TestQuestionEndpoints:
         assert data["text"] == "What is the capital of France?"
         assert "id" in data
         assert "created_at" in data
-        assert data["selected_generation_id"] is None
     
     def test_get_questions(self, client: TestClient):
         """Test getting all questions"""
@@ -40,7 +39,7 @@ class TestQuestionEndpoints:
         data = response.json()
         assert len(data) == 1
         assert data[0]["text"] == "What is the capital of France?"
-        assert data[0]["selected_generation_id"] is None
+        assert data[0]["selected_generation"] is None
     
     def test_get_questions_with_details(self, client: TestClient):
         """Test getting questions with generation details"""
