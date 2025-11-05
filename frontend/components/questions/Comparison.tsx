@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { ComparisonType } from "@/types/question";
 import { toast } from "sonner";
-import NoComparison from "./NoComparison";
 import ReactMarkdown from "react-markdown";
 import { CheckCircle, Loader2, Trophy, Zap, Clock, Target } from "lucide-react";
+import type { ComparisonType } from "@/types/question";
+import NoComparison from "./NoComparison";
 
-// Word-by-word animation component with opacity
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Word-by-word typing animation component
 function TypingText({ text, speed = 100 }: { text: string; speed?: number }) {
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  
-  // Split text into words
   const words = text.split(' ');
 
   useEffect(() => {
@@ -28,78 +28,82 @@ function TypingText({ text, speed = 100 }: { text: string; speed?: number }) {
 
   return (
     <div className="prose prose-sm max-w-none text-gray-700">
-      <ReactMarkdown>
-        {displayedWords.join(' ')}
-      </ReactMarkdown>
+      <ReactMarkdown>{displayedWords.join(' ')}</ReactMarkdown>
     </div>
   );
 }
 
-export default function Comparison({  comparison }: { comparison: ComparisonType }) {
-  const [currentComparison, setCurrentComparison] = useState<ComparisonType | null>(comparison);
+export default function Comparison({ comparison }: { comparison: ComparisonType }) {
+  const [currentComparison, setCurrentComparison] = useState<ComparisonType>(comparison);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isProcessingRef = useRef(false);
   const router = useRouter();
 
   const decideWinner = async (winnerId: number) => {
-    if (!comparison) return;
+    // Prevent duplicate submissions with ref (immediate check before state updates)
+    if (isLoading || isProcessingRef.current) return;
+    
+    isProcessingRef.current = true;
     setIsLoading(true);
+
+    // Optimistic UI update - show winner immediately
+    setCurrentComparison(prev => ({ ...prev, winner_id: winnerId }));
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/questions/${currentComparison?.question.id}/duels/${currentComparison?.id}/decide`,
+        `${API_URL}/questions/${currentComparison.question.id}/duels/${currentComparison.id}/decide`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ winner_id: winnerId }),
         }
       );
 
-      if (response.ok) {
-        setIsLoading(false);
-        await fetchNextComparison();
-      } else {
+      if (!response.ok) {
+        // Revert optimistic update on error
+        setCurrentComparison(prev => ({ ...prev, winner_id: null }));
         throw new Error("Failed to decide winner");
       }
+
+      await fetchNextComparison();
     } catch (error) {
       console.error("Error deciding winner:", error);
-      toast.error("Error deciding winner");
+      toast.error("Failed to record your decision. Please try again.");
       setIsLoading(false);
+      isProcessingRef.current = false;
     }
   };
 
   const fetchNextComparison = async () => {
-    if (!currentComparison) return;
-    setIsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${currentComparison.question.id}/duels/next`);
-      if (!response.ok) {
-        // If all duels have been decided, redirect to question page to show selected answer
-        if (response.status === 204) {
-          router.push(`/questions/${currentComparison.question.id}`);
-          return;
-        }
-        // If question not found, this is a real error
-        if (response.status === 404) {
-          throw new Error("Question not found");
-        }
-        throw new Error("Failed to fetch next comparison");
+      const response = await fetch(
+        `${API_URL}/questions/${currentComparison.question.id}/duels/next`
+      );
+
+      // All duels completed - refresh to show results
+      if (response.status === 204) {
+        router.refresh();
+        return;
       }
-      const data = await response.json();
-      const nextComparison = data as ComparisonType;
+
+      if (!response.ok) {
+        throw new Error(response.status === 404 ? "Question not found" : "Failed to fetch next duel");
+      }
+
+      const nextComparison = await response.json() as ComparisonType;
       setCurrentComparison(nextComparison);
-      setErrorMessage(null);
+      isProcessingRef.current = false;
+      setIsLoading(false);
     } catch (error) {
       console.error("Error fetching next comparison:", error);
-      toast.error("Error fetching next comparison");
-    } finally {
+      toast.error("Failed to load next comparison. Please refresh the page.");
+      isProcessingRef.current = false;
       setIsLoading(false);
     }
   };
+
   if (!currentComparison && !isLoading) {
-    return <NoComparison message={errorMessage || "You've completed all available comparisons"} />;
+    return <NoComparison message="You've completed all available comparisons" />;
   }
 
   if (isLoading) {

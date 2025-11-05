@@ -1,7 +1,38 @@
 from sqlmodel import Session, select
-from models.duel import Duel
+from models.duel import Duel, DuelGeneration
+from models.generation import Generation
+from models.template import Template
 from models.questions import Question
 from collections import Counter
+from db import engine
+
+def generation_and_duels_background_task(question_id: int):
+    """Background task to generate outputs and save them to the database"""
+    from services.llm import generate_outputs
+    
+    with Session(engine) as db:
+        question = db.exec(select(Question).where(Question.id == question_id)).first()
+        if not question:
+            return
+        
+        # Generate outputs and save them
+        templates = db.exec(select(Template)).all()
+        outputs = generate_outputs(templates, question)
+        for output in outputs:
+            db.add(output)
+        db.commit()
+        
+        # Create duels for all generation pairs
+        generations = db.exec(select(Generation).where(Generation.question_id == question_id)).all()
+        for i, gen_a in enumerate(generations):
+            for gen_b in generations[i+1:]:
+                duel = Duel(question_id=question_id)
+                db.add(duel)
+                db.flush()
+                db.add(DuelGeneration(duel_id=duel.id, generation_id=gen_a.id, role="generation_a"))
+                db.add(DuelGeneration(duel_id=duel.id, generation_id=gen_b.id, role="generation_b"))
+        db.commit()
+
 
 def set_question_winner(question_id: int, db: Session):
     """

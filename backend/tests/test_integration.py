@@ -79,7 +79,7 @@ class TestIntegrationScenarios:
         
         # 3. Wait a moment for background task to complete (in real scenario)
         # For testing, we'll manually trigger the background task
-        from routers.questions import generation_and_duels_background_task
+        from services.question import generation_and_duels_background_task
         generation_and_duels_background_task(question_id)
         
         # 4. Get the question with details

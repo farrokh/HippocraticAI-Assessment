@@ -13,7 +13,7 @@ class TestBackgroundTasks:
     def test_generation_and_duels_background_task_question_not_found(self, db_session):
         """Test background task when question doesn't exist"""
         # Run the background task with non-existent question ID
-        from routers.questions import generation_and_duels_background_task
+        from services.question import generation_and_duels_background_task
         generation_and_duels_background_task(999)
         
         # Should not raise an error, just return early

@@ -12,8 +12,8 @@ interface UsePollDuelsOptions {
 }
 
 /**
- * Custom hook to poll for duels with exponential backoff
- * Automatically refreshes the page when duels become available
+ * Polls the duels endpoint with exponential backoff until duels are ready.
+ * Used in ProcessingQuestion component to detect when generation completes.
  */
 export function usePollDuels({
   questionId,
@@ -33,14 +33,12 @@ export function usePollDuels({
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    const intervalRef = { current: initialInterval };
+    let interval = initialInterval;
     const startTime = Date.now();
     let cancelled = false;
 
     const poll = async () => {
-      if (cancelled || Date.now() - startTime > maxPollingTime) {
-        return;
-      }
+      if (cancelled || Date.now() - startTime > maxPollingTime) return;
 
       try {
         const response = await fetch(
@@ -49,25 +47,28 @@ export function usePollDuels({
 
         if (cancelled) return;
 
+        // Still processing (202) - continue polling with backoff
         if (response.status === 202) {
-          // Still processing, schedule next poll with exponential backoff
-          const nextInterval = intervalRef.current;
-          intervalRef.current = Math.min(intervalRef.current * 1.2, maxInterval);
-          timeoutId = setTimeout(poll, nextInterval);
-        } else if (response.ok) {
+          interval = Math.min(interval * 1.2, maxInterval);
+          timeoutId = setTimeout(poll, interval);
+        } 
+        // Duels ready (200) or all completed (204) - refresh page
+        else if (response.ok || response.status === 204) {
           callbacksRef.current.onSuccess?.();
           router.refresh();
-        } else if (response.status === 404) {
+        } 
+        // Error states
+        else if (response.status === 404) {
           callbacksRef.current.onError?.(new Error("Question not found"));
-        } else {
-          callbacksRef.current.onError?.(new Error(`Failed to fetch duel: ${response.status}`));
+        } 
+        else {
+          callbacksRef.current.onError?.(new Error(`Unexpected status: ${response.status}`));
         }
       } catch {
-        // Continue polling on network errors
+        // Network error - continue polling with increased backoff
         if (!cancelled) {
-          const nextInterval = intervalRef.current;
-          intervalRef.current = Math.min(intervalRef.current * 2, maxInterval);
-          timeoutId = setTimeout(poll, nextInterval);
+          interval = Math.min(interval * 2, maxInterval);
+          timeoutId = setTimeout(poll, interval);
         }
       }
     };
@@ -80,4 +81,3 @@ export function usePollDuels({
     };
   }, [questionId, router, initialDelay, initialInterval, maxInterval, maxPollingTime]);
 }
-

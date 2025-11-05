@@ -5,25 +5,36 @@ import type { ComparisonType, QuestionResultsType } from "@/types/question";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+/**
+ * Fetches question results including selected generation if available.
+ * cache: 'no-store' ensures fresh data after router.refresh()
+ */
 async function fetchQuestionResults(questionId: string): Promise<QuestionResultsType> {
-  const response = await fetch(`${API_URL}/questions/${questionId}/results`);
+  const response = await fetch(`${API_URL}/questions/${questionId}/results`, {
+    cache: 'no-store'
+  });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch question");
+    throw new Error("Failed to fetch question results");
   }
 
-  return (await response.json()) as QuestionResultsType;
+  return response.json();
 }
 
+/**
+ * Fetches the next available duel for comparison.
+ * Returns null if still processing (202) or all duels completed (204)
+ */
 async function fetchNextDuel(questionId: string): Promise<ComparisonType | null> {
-  const response = await fetch(`${API_URL}/questions/${questionId}/duels/next`);
+  const response = await fetch(`${API_URL}/questions/${questionId}/duels/next`, {
+    cache: 'no-store'
+  });
 
-  // Processing states - question is still being generated or all duels decided
+  // Still processing or all duels completed - show processing state
   if (response.status === 202 || response.status === 204) {
-    return null; // Signal to show processing state
+    return null;
   }
 
-  // Real errors
   if (response.status === 404) {
     throw new Error("Question not found");
   }
@@ -32,18 +43,15 @@ async function fetchNextDuel(questionId: string): Promise<ComparisonType | null>
     throw new Error("Failed to fetch duel");
   }
 
-  return (await response.json()) as ComparisonType;
+  return response.json();
 }
 
-function isValidComparison(comparison: ComparisonType | null): comparison is ComparisonType {
-  return (
-    comparison !== null &&
-    comparison.question !== undefined &&
-    comparison.generation_a !== undefined &&
-    comparison.generation_b !== undefined
-  );
-}
-
+/**
+ * Server component that determines which UI to render based on question state:
+ * 1. QuestionWithSelectedAnswer - if winner has been selected
+ * 2. Comparison - if duels are available for decision
+ * 3. ProcessingQuestion - if still generating or processing
+ */
 export default async function QuestionPage({
   params,
 }: {
@@ -51,19 +59,18 @@ export default async function QuestionPage({
 }) {
   const { questionId } = await params;
 
-  // Fetch question results to check for selected answer
+  // Check if question has been fully processed with a winner
   const questionData = await fetchQuestionResults(questionId);
 
-  // If question already has a selected answer, show it
   if (questionData.selected_generation?.id) {
     return <QuestionWithSelectedAnswer question={questionData} />;
   }
 
-  // Fetch next available duel for comparison
+  // Try to fetch next duel for comparison
   const comparisonData = await fetchNextDuel(questionId);
 
-  // If no duel available (still processing), show processing state
-  if (!isValidComparison(comparisonData)) {
+  if (!comparisonData) {
+    // Still processing or waiting for duels to be generated
     return <ProcessingQuestion questionId={questionId} />;
   }
 

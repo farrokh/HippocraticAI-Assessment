@@ -9,8 +9,8 @@ load_dotenv()
 from routers import templates, questions
 
 app = FastAPI(
-    title="Interview API",
-    description="API for managing templates and questions",
+    title="LLM Tournament Widget API",
+    description="LLM Tournament Widget API",
     version="1.0.0"
 )
 
@@ -30,7 +30,7 @@ app.include_router(questions.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the Interview API"}
+    return {"message": "Welcome to the LLM Tournament Widget API"}
 
 
 if __name__ == "__main__":
