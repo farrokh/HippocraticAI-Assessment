@@ -160,10 +160,12 @@ class TestQuestionEndpoints:
         assert response.status_code == 200
         question_id = response.json()["id"]
         
-        # Try to get next duel
+        # Try to get next duel - should return 202 (still processing) not 404
         response = client.get(f"/questions/{question_id}/duels/next")
-        assert response.status_code == 404
-        assert "No next duel found" in response.json()["detail"]
+        assert response.status_code == 202
+        # Check that we get a processing message
+        detail = response.json()["detail"]
+        assert "processing" in detail.lower() or "processed" in detail.lower()
     
     def test_decide_duel_not_found(self, client: TestClient):
         """Test deciding a non-existent duel"""

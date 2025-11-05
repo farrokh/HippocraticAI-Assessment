@@ -3,10 +3,12 @@
 import type { QuestionType } from "@/types/question";
 import Link from "next/link";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useQuestionRefresh } from "@/contexts/QuestionRefreshContext";
 
 export default function NavbarQuestionsList({ limit = 10, className }: { limit?: number, className?: string }) {
     const [questions, setQuestions] = useState<QuestionType[]>([]);
     const [statuses, setStatuses] = useState<Record<number, 'completed' | 'pending'>>({});
+    const { refreshTrigger } = useQuestionRefresh();
     
     const fetchQuestions = useEffectEvent(async () => {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/?limit=${limit}`);
@@ -37,7 +39,7 @@ export default function NavbarQuestionsList({ limit = 10, className }: { limit?:
     
     useEffect(() => {
         fetchQuestions();
-    }, []);
+    }, [refreshTrigger]);
 
     if (questions.length === 0) {
         return (

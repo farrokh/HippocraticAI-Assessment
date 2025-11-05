@@ -26,7 +26,7 @@ class TestModelRelationships:
         assert duel.question_id == sample_question.id
     
     def test_question_selected_generation_relationship(self, db_session, sample_template, sample_question):
-        """Test the relationship between Question and selected Generation"""
+        """Test the relationship between Question and selected Generation via foreign key"""
         db_session.add(sample_template)
         db_session.add(sample_question)
         db_session.commit()
@@ -41,17 +41,19 @@ class TestModelRelationships:
             llm_model="gpt-4o-mini",
             latency=0.5,
             output_tokens=10,
-            input_tokens=20,
-            is_selected=True
+            input_tokens=20
         )
         db_session.add(generation)
         db_session.commit()
         db_session.refresh(generation)
+        
+        # Set it as the selected generation
+        sample_question.selected_generation_id = generation.id
+        db_session.add(sample_question)
+        db_session.commit()
         db_session.refresh(sample_question)
         
-        assert generation.is_selected == True
-        assert sample_question.selected_generation is not None
-        assert sample_question.selected_generation.id == generation.id
+        assert sample_question.selected_generation_id == generation.id
     
     def test_duel_generations_many_to_many(self, db_session, sample_template, sample_question):
         """Test the many-to-many relationship between Duel and Generation"""

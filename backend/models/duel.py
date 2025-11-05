@@ -23,18 +23,6 @@ class Duel(SQLModel, table=True):
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.now)
     decided_at: Optional[datetime] = Field(default=None)
-    
-    # Relationships
-    question: Question = Relationship(back_populates="duels")
-    winner: Optional[Generation] = Relationship(
-        sa_relationship_kwargs={"overlaps": "duels"}
-    )
-    
-    # Many-to-many relationship with Generation through junction table
-    generations: List[Generation] = Relationship(
-        back_populates="duels",
-        link_model=DuelGeneration
-    )
 
 
 class DecideDuelRequest(BaseModel):

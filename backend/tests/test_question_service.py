@@ -19,7 +19,7 @@ class TestQuestionService:
         result = set_question_winner(sample_question.id, db_session)
         assert result is None
         db_session.refresh(sample_question)
-        assert sample_question.selected_generation is None
+        assert sample_question.selected_generation_id is None
     
     def test_set_question_winner_undecided_duels(self, db_session, sample_template, sample_question):
         """Test set_question_winner when duels exist but are not all decided"""
@@ -76,7 +76,7 @@ class TestQuestionService:
         result = set_question_winner(sample_question.id, db_session)
         assert result is None
         db_session.refresh(sample_question)
-        assert sample_question.selected_generation is None
+        assert sample_question.selected_generation_id is None
     
     def test_set_question_winner_clear_winner(self, db_session, sample_template, sample_question):
         """Test set_question_winner with a clear winner"""
@@ -139,11 +139,9 @@ class TestQuestionService:
         
         result = set_question_winner(sample_question.id, db_session)
         assert result is not None
-        db_session.refresh(gen1)
         db_session.refresh(sample_question)
-        assert gen1.is_selected == True
-        assert sample_question.selected_generation is not None
-        assert sample_question.selected_generation.id == gen1.id
+        assert sample_question.selected_generation_id is not None
+        assert sample_question.selected_generation_id == gen1.id
     
     def test_set_question_winner_tie_breaker(self, db_session, sample_template, sample_question):
         """Test set_question_winner with a tie - should use lowest ID"""
@@ -216,11 +214,9 @@ class TestQuestionService:
         # All have 1 win, so gen1 (lowest ID) should win
         result = set_question_winner(sample_question.id, db_session)
         assert result is not None
-        db_session.refresh(gen1)
         db_session.refresh(sample_question)
-        assert gen1.is_selected == True  # Lowest ID among tied winners
-        assert sample_question.selected_generation is not None
-        assert sample_question.selected_generation.id == gen1.id
+        assert sample_question.selected_generation_id is not None
+        assert sample_question.selected_generation_id == gen1.id  # Lowest ID among tied winners
     
     def test_set_question_winner_question_not_found(self, db_session):
         """Test set_question_winner when question doesn't exist"""
@@ -285,18 +281,14 @@ class TestQuestionService:
         # First call should set winner
         result1 = set_question_winner(sample_question.id, db_session)
         assert result1 is not None
-        db_session.refresh(gen1)
         db_session.refresh(sample_question)
-        assert gen1.is_selected == True
-        assert sample_question.selected_generation is not None
-        assert sample_question.selected_generation.id == gen1.id
+        assert sample_question.selected_generation_id is not None
+        assert sample_question.selected_generation_id == gen1.id
         
         # Second call should still work (idempotent)
         db_session.refresh(sample_question)
-        db_session.refresh(gen1)
         result2 = set_question_winner(sample_question.id, db_session)
         assert result2 is not None
-        assert gen1.is_selected == True
-        assert sample_question.selected_generation is not None
-        assert sample_question.selected_generation.id == gen1.id
+        assert sample_question.selected_generation_id is not None
+        assert sample_question.selected_generation_id == gen1.id
 

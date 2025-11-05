@@ -12,7 +12,7 @@ class TestMainApplication:
         assert response.status_code == 200
         
         data = response.json()
-        assert data["message"] == "Welcome to the Interview API"
+        assert data["message"] == "Welcome to the LLM Tournament Widget API"
     
     def test_cors_headers(self, client: TestClient):
         """Test that CORS headers are properly set"""
@@ -36,7 +36,7 @@ class TestMainApplication:
         assert response.status_code == 200
         
         data = response.json()
-        assert data["info"]["title"] == "Interview API"
+        assert data["info"]["title"] == "LLM Tournament Widget API"
         assert data["info"]["version"] == "1.0.0"
         assert "paths" in data
     

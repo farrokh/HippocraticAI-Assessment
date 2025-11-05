@@ -30,7 +30,7 @@ class TestDatabaseModels:
         assert sample_question.id is not None
         assert sample_question.text == "What is the capital of France?"
         assert sample_question.created_at is not None
-        assert sample_question.selected_generation is None
+        assert sample_question.selected_generation_id is None
     
     def test_generation_creation(self, db_session, sample_template, sample_question, sample_generation):
         """Test creating a generation"""

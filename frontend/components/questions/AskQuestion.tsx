@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import { Send, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useQuestionRefresh } from "@/contexts/QuestionRefreshContext";
 
 interface QuestionResponse {
   id: number;
@@ -17,6 +18,7 @@ export default function AskQuestion() {
   const [isTyping, setIsTyping] = useState(false);
   const router = useRouter();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { triggerRefresh } = useQuestionRefresh();
 
   // Auto-resize textarea
   useEffect(() => {
@@ -50,6 +52,9 @@ export default function AskQuestion() {
 
       const data = (await response.json()) as QuestionResponse;
       setQuestion("");
+      
+      // Trigger refresh of the sidebar questions list
+      triggerRefresh();
 
       router.push(`/questions/${data.id}`);
     } catch (error) {

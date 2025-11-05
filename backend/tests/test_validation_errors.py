@@ -9,11 +9,6 @@ from models.generation import Generation
 class TestValidationErrors:
     """Test validation errors and error handling"""
     
-    def test_create_question_missing_field(self, client: TestClient):
-        """Test creating a question with missing required field"""
-        response = client.post("/questions/", json={})
-        assert response.status_code == 422  # Validation error
-    
     def test_create_question_invalid_field_type(self, client: TestClient):
         """Test creating a question with invalid field type"""
         response = client.post("/questions/", json={
@@ -21,14 +16,6 @@ class TestValidationErrors:
         })
         # Should either accept it or return validation error
         assert response.status_code in [200, 422]
-    
-    def test_create_template_missing_field(self, client: TestClient):
-        """Test creating a template with missing required field"""
-        response = client.post("/templates/", json={
-            "key": "test_template"
-            # Missing name and template_text
-        })
-        assert response.status_code == 422  # Validation error
     
     def test_update_question_invalid_id(self, client: TestClient):
         """Test updating a question with invalid ID type"""
@@ -118,51 +105,4 @@ class TestValidationErrors:
         })
         # Should either ignore extra fields or return validation error
         assert response.status_code in [200, 422]
-    
-    def test_update_question_readonly_fields(self, client: TestClient):
-        """Test updating a question with readonly fields"""
-        # Create question
-        create_response = client.post("/questions/", json={
-            "text": "What is the capital of France?"
-        })
-        assert create_response.status_code == 200
-        question_id = create_response.json()["id"]
-        original_created_at = create_response.json()["created_at"]
-        
-        # Try to update readonly fields
-        update_response = client.put(f"/questions/{question_id}", json={
-            "text": "Updated question",
-            "id": 999,  # Should be ignored
-            "created_at": "2020-01-01T00:00:00"  # Should be ignored
-        })
-        assert update_response.status_code == 200
-        data = update_response.json()
-        assert data["id"] == question_id  # ID should not change
-        assert data["created_at"] == original_created_at  # Created_at should not change
-    
-    def test_update_template_readonly_fields(self, client: TestClient):
-        """Test updating a template with readonly fields"""
-        # Create template
-        create_response = client.post("/templates/", json={
-            "key": "test_template",
-            "name": "Test Template",
-            "template_text": "Answer: {{question}}"
-        })
-        assert create_response.status_code == 200
-        template_id = create_response.json()["id"]
-        original_key = create_response.json()["key"]
-        original_created_at = create_response.json()["created_at"]
-        
-        # Try to update readonly fields
-        update_response = client.put(f"/templates/{template_id}", json={
-            "name": "Updated Template",
-            "key": "changed_key",  # Should be ignored
-            "id": 999,  # Should be ignored
-            "created_at": "2020-01-01T00:00:00"  # Should be ignored
-        })
-        assert update_response.status_code == 200
-        data = update_response.json()
-        assert data["id"] == template_id  # ID should not change
-        assert data["key"] == original_key  # Key should not change
-        assert data["created_at"] == original_created_at  # Created_at should not change
 

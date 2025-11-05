@@ -2,6 +2,7 @@ import pytest
 import tempfile
 import os
 from sqlmodel import SQLModel, create_engine, Session
+from sqlalchemy.pool import NullPool
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
 
@@ -16,19 +17,27 @@ from main import app
 
 @pytest.fixture(scope="function")
 def test_db():
-    """Create a temporary database for each test"""
+    """Create a temporary database for each test - optimized with NullPool"""
     # Create a temporary database file
     db_fd, db_path = tempfile.mkstemp(suffix='.db')
     
-    # Create engine with the temporary database
-    engine = create_engine(f"sqlite:///{db_path}")
+    # Create engine with NullPool to avoid connection pool issues
+    engine = create_engine(
+        f"sqlite:///{db_path}",
+        poolclass=NullPool,  # Don't pool connections - each test gets fresh connection
+        connect_args={"timeout": 1}  # Quick timeout for locks
+    )
     SQLModel.metadata.create_all(engine)
     
     yield engine
     
     # Cleanup
+    engine.dispose()
     os.close(db_fd)
-    os.unlink(db_path)
+    try:
+        os.unlink(db_path)
+    except:
+        pass  # Ignore cleanup errors
 
 
 @pytest.fixture(scope="function")
@@ -41,10 +50,20 @@ def db_session(test_db):
 @pytest.fixture(scope="function")
 def client(test_db):
     """Create a test client with a temporary database"""
-    # Patch the database engine in the main app
-    with patch('db.engine', test_db):
-        with TestClient(app) as test_client:
-            yield test_client
+    from db import get_db
+    
+    # Override the get_db dependency
+    def override_get_db():
+        with Session(test_db) as session:
+            yield session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    # Clean up override
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture

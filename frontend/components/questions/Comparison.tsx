@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import { CheckCircle, Loader2, Trophy, Zap, Clock, Target } from "lucide-react";
 import type { ComparisonType } from "@/types/question";
 import NoComparison from "./NoComparison";
+import { useQuestionRefresh } from "@/contexts/QuestionRefreshContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -38,7 +39,7 @@ export default function Comparison({ comparison }: { comparison: ComparisonType 
   const [isLoading, setIsLoading] = useState(false);
   const isProcessingRef = useRef(false);
   const router = useRouter();
-
+  const { triggerRefresh } = useQuestionRefresh();
   const decideWinner = async (winnerId: number) => {
     // Prevent duplicate submissions with ref (immediate check before state updates)
     if (isLoading || isProcessingRef.current) return;
@@ -82,6 +83,7 @@ export default function Comparison({ comparison }: { comparison: ComparisonType 
 
       // All duels completed - refresh to show results
       if (response.status === 204) {
+        triggerRefresh();
         router.refresh();
         return;
       }
