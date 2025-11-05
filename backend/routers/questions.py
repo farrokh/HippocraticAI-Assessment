@@ -148,7 +148,31 @@ def get_duels_by_question(question_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{question_id}/duels/next", response_model=DuelWithGenerations)
 def get_next_duel(question_id: int, db: Session = Depends(get_db)):
-    """Get the next undecided duel with full question and generation data"""
+    """Get the next undecided duel with full question and generation data
+    
+    Returns:
+        - 404: Question not found
+        - 202: Question is still being processed (generations or duels not ready)
+        - 204: All duels have been decided (no more comparisons available)
+        - 200: Returns the next duel
+    """
+    # First, verify the question exists
+    question = db.exec(select(Question).where(Question.id == question_id)).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # Check if generations exist for this question
+    generations = db.exec(select(Generation).where(Generation.question_id == question_id)).all()
+    if not generations:
+        # Question exists but generations haven't been created yet - still processing
+        raise HTTPException(status_code=202, detail="Question is still being processed")
+    
+    # Check if duels exist for this question
+    duels = db.exec(select(Duel).where(Duel.question_id == question_id)).all()
+    if not duels:
+        # Generations exist but duels haven't been created yet - still processing
+        raise HTTPException(status_code=202, detail="Duels are still being created")
+    
     # Single query with joins to get everything at once, including the role
     statement = (
         select(Duel, Generation, Question, DuelGeneration.role)
@@ -160,7 +184,9 @@ def get_next_duel(question_id: int, db: Session = Depends(get_db)):
     
     results = db.exec(statement).all()
     if not results:
-        raise HTTPException(status_code=404, detail="No next duel found")
+        # Question exists, generations exist, duels exist, but all are decided
+        # This is not an error - it's a completion state
+        raise HTTPException(status_code=204, detail="All duels have been decided")
     
     # Group results by duel_id to handle the two generations per duel
     duels_data = {}
@@ -179,7 +205,8 @@ def get_next_duel(question_id: int, db: Session = Depends(get_db)):
                    if 'generation_a' in data['generations'] and 'generation_b' in data['generations']]
     
     if not valid_duels:
-        raise HTTPException(status_code=404, detail="No complete duels found")
+        # Duels exist but none are complete - still processing
+        raise HTTPException(status_code=202, detail="Duels are still being created")
     
     duel_data = random.choice(valid_duels)
     duel = duel_data['duel']

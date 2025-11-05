@@ -76,25 +76,21 @@ export default function Comparison({  comparison }: { comparison: ComparisonType
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/questions/${currentComparison.question.id}/duels/next`);
       if (!response.ok) {
-        // If no more duels available, redirect to question page to show selected answer
-        if (response.status === 404) {
+        // If all duels have been decided, redirect to question page to show selected answer
+        if (response.status === 204) {
           router.push(`/questions/${currentComparison.question.id}`);
           return;
+        }
+        // If question not found, this is a real error
+        if (response.status === 404) {
+          throw new Error("Question not found");
         }
         throw new Error("Failed to fetch next comparison");
       }
       const data = await response.json();
-      
-      // Check if the response is the "No next duel found" message
-      if (data.detail === "No next duel found") {
-        // Redirect to question page to show selected answer
-        router.push(`/questions/${currentComparison.question.id}`);
-        return;
-      } else {
-        const nextComparison = data as ComparisonType;
-        setCurrentComparison(nextComparison);
-        setErrorMessage(null);
-      }
+      const nextComparison = data as ComparisonType;
+      setCurrentComparison(nextComparison);
+      setErrorMessage(null);
     } catch (error) {
       console.error("Error fetching next comparison:", error);
       toast.error("Error fetching next comparison");

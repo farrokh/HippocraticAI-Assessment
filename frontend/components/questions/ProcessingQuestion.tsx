@@ -21,7 +21,7 @@ export default function ProcessingQuestion({ questionId }: ProcessingQuestionPro
 
   // Poll for duels to become available
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let intervalId: NodeJS.Timeout | null = null;
     let maxTimeoutId: NodeJS.Timeout;
 
     const pollForDuels = async () => {
@@ -30,9 +30,19 @@ export default function ProcessingQuestion({ questionId }: ProcessingQuestionPro
         if (response.ok) {
           // Duels are ready, refresh the page
           router.refresh();
+        } else if (response.status === 202) {
+          // Still processing, continue polling
+          console.log("Still processing...");
+        } else if (response.status === 404) {
+          // Question not found - this is a real error, stop polling
+          console.error("Question not found");
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
         }
       } catch (error) {
-        // Continue polling
+        // Continue polling on network errors
         console.log("Still processing...");
       }
     };
@@ -69,7 +79,7 @@ export default function ProcessingQuestion({ questionId }: ProcessingQuestionPro
           Generating AI responses{dots}
         </p>
         <p className="text-gray-500 text-sm mt-2 max-w-md">
-          We're creating multiple AI responses and setting up comparisons. This usually takes 10-30 seconds.
+          We&apos;re creating multiple AI responses and setting up comparisons. This usually takes 10-30 seconds.
         </p>
       </div>
 
